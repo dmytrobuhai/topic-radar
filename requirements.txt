@@ -1,0 +1,6 @@
+gradio
+httpx
+feedparser
+beautifulsoup4
+pyalex
+python-dotenv
