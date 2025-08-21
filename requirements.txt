@@ -4,3 +4,4 @@ feedparser
 beautifulsoup4
 pyalex
 python-dotenv
+python-dateutil

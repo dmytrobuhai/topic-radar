@@ -1,3 +1,5 @@
+import os
+
 APP_TITLE = "📡 Topic Radar - Papers • News • Videos"
 
 DATE_WINDOWS = {
@@ -8,6 +10,9 @@ DATE_WINDOWS = {
 }
 
 DEFAULT_MAX_TOTAL = 30
+
+YT_KEY = os.getenv("YT_API_KEY", "").strip()
+EMAIL = os.getenv("EMAIL", "").strip()
 
 # Minimal per-category counts
 DEFAULT_MIN_PAPERS = 6
