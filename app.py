@@ -64,6 +64,25 @@ def _apply_weights_global(weights: Dict[str, float]) -> None:
         except Exception:
             pass
 
+def _normalize_to_100(d: Dict[str, int], only_keys: List[str] | None = None) -> Dict[str, int]:
+    keys = only_keys or list(d.keys())
+    vals = {k: max(0, int(d.get(k, 0))) for k in keys}
+    s = sum(vals.values())
+    if s <= 0:
+        eq = 100 // len(keys)
+        res = {k: eq for k in keys}
+        rem = 100 - eq * len(keys)
+        for k in keys[:rem]:
+            res[k] += 1
+        return res
+    scaled = {k: (100.0 * vals[k] / s) for k in keys}
+    floors = {k: int(x) for k, x in scaled.items()}
+    rem = 100 - sum(floors.values())
+    fracs = sorted(((k, scaled[k] - floors[k]) for k in keys), key=lambda t: t[1], reverse=True)
+    for i in range(rem):
+        floors[fracs[i % len(fracs)][0]] += 1
+    return floors
+
 # ---------------- Search pipeline (streaming) ----------------
 CONF_THRESHOLD = 25.0  
 
@@ -114,20 +133,28 @@ def run_search(
 
     # ---------- time window & top allocation ----------
     days = DATE_WINDOWS.get(window_label, 30)
-    top_alloc = _allocate_counts(
-        int(max_total),
-        {"Papers": papers_pct, "Videos": videos_pct, "News": news_pct},
-        ["Papers", "Videos", "News"]
-    )
+
+    active_keys = [k for k in ["Papers", "Videos", "News"] if k in kinds]
+    if not active_keys:
+        yield prog_papers, papers_html, prog_videos, videos_html, prog_news, news_html
+        return
+
+    raw_top = {"Papers": papers_pct, "Videos": videos_pct, "News": news_pct}
+    top_ratios = _normalize_to_100(raw_top, only_keys=active_keys)
+    top_alloc_active = _allocate_counts(int(max_total), top_ratios, active_keys)
+    top_alloc = {"Papers": 0, "Videos": 0, "News": 0}
+    top_alloc.update(top_alloc_active)
 
     # =================== PAPERS ===================
     if "Papers" in kinds and top_alloc["Papers"] > 0:
         prog_papers = ptxt(10, "Fetching papers…")
         yield prog_papers, papers_html, prog_videos, videos_html, prog_news, news_html
 
+        raw_mix = {"arxiv": arxiv_share, "crossref": crossref_share, "openalex": openalex_share, "hf": hf_share}
+        papers_mix = _normalize_to_100(raw_mix, only_keys=["arxiv", "crossref", "openalex", "hf"])
         per_alloc = _allocate_counts(
             top_alloc["Papers"],
-            {"arxiv": arxiv_share, "crossref": crossref_share, "openalex": openalex_share, "hf": hf_share},
+            papers_mix,
             ["arxiv", "crossref", "openalex", "hf"]
         )
 
@@ -226,35 +253,11 @@ with gr.Blocks(title="Topic Radar", analytics_enabled=False) as demo:
     ) = build_top_controls(DEFAULT_MAX_TOTAL, DATE_WINDOWS, DEFAULT_WEIGHTS, DEFAULT_PAPER_SPLIT)
 
     # live % rebalance 
-    papers_pct.change(on_papers_change, [papers_pct, videos_pct, news_pct], [papers_pct, videos_pct, news_pct], queue=False, show_progress=False)
-    videos_pct.change(on_videos_change, [videos_pct, papers_pct, news_pct], [papers_pct, videos_pct, news_pct], queue=False, show_progress=False)
-    news_pct.change(  on_news_change,   [news_pct,   papers_pct, videos_pct], [papers_pct, videos_pct, news_pct], queue=False, show_progress=False)
+    # (disabled)
 
     # live % rebalance (4 per-source)
-    arxiv_share.change(
-        lambda *args: on_source_pct_change("arxiv", *args),
-        inputs=[arxiv_share, crossref_share, openalex_share, hf_share],
-        outputs=[arxiv_share, crossref_share, openalex_share, hf_share],
-        queue=False,
-    )
-    crossref_share.change(
-        lambda *args: on_source_pct_change("crossref", *args),
-        inputs=[arxiv_share, crossref_share, openalex_share, hf_share],
-        outputs=[arxiv_share, crossref_share, openalex_share, hf_share],
-        queue=False,
-    )
-    openalex_share.change(
-        lambda *args: on_source_pct_change("openalex", *args),
-        inputs=[arxiv_share, crossref_share, openalex_share, hf_share],
-        outputs=[arxiv_share, crossref_share, openalex_share, hf_share],
-        queue=False,
-    )
-    hf_share.change(
-        lambda *args: on_source_pct_change("hf", *args),
-        inputs=[arxiv_share, crossref_share, openalex_share, hf_share],
-        outputs=[arxiv_share, crossref_share, openalex_share, hf_share],
-        queue=False,
-    )
+    # (disabled)
+
     # Results 
     with gr.Row():
         with gr.Column(scale=1):

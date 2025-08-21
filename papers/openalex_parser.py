@@ -102,11 +102,27 @@ def _authors(work: Dict[str, Any]) -> List[Dict[str, Optional[str]]]:
         out.append({"name": name, "affiliation": aff})
     return out
 
+
+def _to_iso_date(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return None
+    try:
+        if len(s) >= 10:
+            s = s[:10]
+        dt.date.fromisoformat(s)
+        return s
+    except Exception:
+        try:
+            d = dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
+            return d.date().isoformat()
+        except Exception:
+            return None
+        
 def _normalize(work: Dict[str, Any]) -> Dict[str, Any]:
     title = work.get("display_name") or work.get("title")
     abstract = work.get("abstract") or _reconstruct_abstract(work.get("abstract_inverted_index"))
-    pub_date = work.get("publication_date") or work.get("from_publication_date")
-    upd_date = work.get("updated_date") or pub_date
+    pub_date = _to_iso_date(work.get("publication_date") or work.get("from_publication_date"))
+    upd_date = _to_iso_date(work.get("updated_date") or pub_date)
     loc = work.get("primary_location") or {}
     abs_url = loc.get("landing_page_url") or (loc.get("source") or {}).get("homepage_url") or work.get("id")
     pdf_url = loc.get("pdf_url")

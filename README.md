@@ -60,3 +60,4 @@ python -m videos.youtube_api "computer vision industrial automation" --days 10 -
 python -m news.news_parser "artificial intelligence regulation" --days 7 --max 5 --debug
 
 ```
+Thank you to arXiv for use of its open access interoperability.
