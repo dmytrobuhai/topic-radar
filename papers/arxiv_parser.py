@@ -9,7 +9,7 @@ Features:
 - Dedupe, rank by confidence, JSON export
 
 Usage:
-  python arxiv_parser.py "computer vision industrial automation" --days 180 --max 10 --debug
+  python arxiv_parser.py "computer vision industrial automation" --days 30 --max 10 --debug
 """
 
 from __future__ import annotations
@@ -384,7 +384,8 @@ def score_entry(entry: Dict[str, Any], base_pats: List[re.Pattern], prf_pats: Li
 
 def dedupe(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Remove duplicates by arxiv_id (fallback: lowercased title)."""
-    seen = set(); out = []
+    seen = set();
+    out = []
     for e in entries:
         key = e.get("arxiv_id") or (e.get("title","").strip().lower())
         if key and key not in seen:
@@ -393,23 +394,20 @@ def dedupe(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 # ---------- Orchestrator ----------
 def arxiv_search(topic: str, days: int = 30, max_results: int = 50, debug: bool = False) -> List[Dict[str, Any]]:
-    """Run full pipeline: retrieve → PRF expand → retrieve → score → rank → top-K."""
+    """Run full pipeline: retrieve > PRF expand > retrieve > score > rank > top-K."""
     base_tokens = _tokens(topic)
     base_pats = _compile_word_patterns(base_tokens)
 
-    # Initial retrieval pool
     pool_target = max(5 * max_results, 100)
     pool = multi_strategy_retrieve(topic, days, pool_target=pool_target, debug=debug)
     if debug:
         print(f"[DEBUG] initial pool: {len(pool)}")
 
-    # PRF expansion
     prf = prf_terms(pool, base_tokens, k_docs=min(PRF_TOP_DOCS, len(pool)), top_terms=PRF_TOP_TERMS)
     prf = [t for t in prf if t not in base_tokens]
     if debug:
         print("[DEBUG] PRF terms:", prf)
 
-    # Optional extra retrieval with PRF
     if prf:
         q_prf = build_prf_query(base_tokens, prf, days)
         if debug and q_prf:
@@ -422,7 +420,6 @@ def arxiv_search(topic: str, days: int = 30, max_results: int = 50, debug: bool 
             if debug:
                 print(f"[DEBUG] PRF retrieve added: {len(pool) - before}, pool now: {len(pool)}")
 
-    # Scoring and filtering
     prf_pats = _compile_word_patterns(prf) if prf else []
     scored: List[Dict[str, Any]] = []
     for e in pool:
@@ -434,14 +431,13 @@ def arxiv_search(topic: str, days: int = 30, max_results: int = 50, debug: bool 
         if ok:
             scored.append(e)
 
-    # Rank and cut
     scored.sort(key=lambda x: (x.get("confidence", 0.0), x.get("updated") or "", x.get("published") or ""), reverse=True)
     return scored[:max_results]
 
 # ---------- CLI ----------
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Universal arXiv search with PRF and lexical scoring")
-    parser.add_argument("topic", type=str, help="Search topic (any domain, English recommended)")
+    parser.add_argument("topic", type=str, help="Search topic")
     parser.add_argument("--days", type=int, default=30, help="Date window in days (e.g., 7, 30, 180, 365)")
     parser.add_argument("--max", type=int, default=50, help="Max results to return after ranking")
     parser.add_argument("--debug", action="store_true", help="Print internal debug info")
