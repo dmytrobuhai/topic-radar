@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.ipynb_checkpoints/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & caches
+*.log
+*.out
+*.tmp
+*.pid
+.cache/
+*.sqlite
+*.db
+
+# Config / Keys
+.env
+*.secret
+*.key
+
+# JSON file
+*.json
+
+/.huggingface
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_convert/
+
+# Other
+*.bak
+*.old
